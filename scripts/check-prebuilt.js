@@ -58,6 +58,8 @@ const ALLOWED_WINDOWS_DLLS = new Set([
 const ALLOWED_LINUX_NEEDED = new Set([
   'libc.so.6',
   'libdl.so.2',
+  'ld-linux-aarch64.so.1',
+  'ld-linux-x86-64.so.2',
   'libm.so.6',
   'libpthread.so.0',
   'libresolv.so.2',
@@ -243,11 +245,18 @@ function checkMac(file, key) {
 
   const loadCommands = run('otool', ['-l', file]);
   const minVersions = [];
-  for (const match of loadCommands.matchAll(/cmd LC_BUILD_VERSION[\s\S]*?platform macos[\s\S]*?minos ([0-9.]+)/g)) {
-    minVersions.push(versionParts(match[1]));
-  }
-  for (const match of loadCommands.matchAll(/cmd LC_VERSION_MIN_MACOSX[\s\S]*?version ([0-9.]+)/g)) {
-    minVersions.push(versionParts(match[1]));
+  for (const block of loadCommands.split(/\nLoad command \d+\n/)) {
+    if (/\bcmd LC_BUILD_VERSION\b/.test(block) && /\bplatform\s+macos\b/i.test(block)) {
+      const match = block.match(/\bminos\s+([0-9.]+)/i);
+      if (match) {
+        minVersions.push(versionParts(match[1]));
+      }
+    } else if (/\bcmd LC_VERSION_MIN_MACOSX\b/.test(block)) {
+      const match = block.match(/\bversion\s+([0-9.]+)/i);
+      if (match) {
+        minVersions.push(versionParts(match[1]));
+      }
+    }
   }
   if (minVersions.length === 0) {
     invalid.push(`${file}: missing macOS minimum deployment target load command`);

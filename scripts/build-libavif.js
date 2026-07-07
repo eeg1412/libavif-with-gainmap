@@ -22,6 +22,10 @@ const platformKey = process.env.TARGET_PLATFORM_KEY || getPlatformKey();
 const vendorDir = path.join(root, 'vendor', platformKey);
 const macosDeploymentTarget = process.env.MACOSX_DEPLOYMENT_TARGET || '12.0';
 
+function isMultiConfigGenerator(generator) {
+  return /visual studio|xcode|ninja multi-config/i.test(generator);
+}
+
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd || root,
@@ -94,6 +98,7 @@ function patchCMake() {
 
 function configureAndBuild() {
   const generator = process.env.CMAKE_GENERATOR || 'Ninja';
+  const generatorPlatform = process.env.CMAKE_GENERATOR_PLATFORM;
   const cmakeArgs = [
     '-S',
     sourceDir,
@@ -101,7 +106,6 @@ function configureAndBuild() {
     buildDir,
     '-G',
     generator,
-    '-DCMAKE_BUILD_TYPE=Release',
     '-DBUILD_SHARED_LIBS=OFF',
     '-DAVIF_BUILD_APPS=ON',
     '-DAVIF_BUILD_TESTS=OFF',
@@ -116,9 +120,16 @@ function configureAndBuild() {
     ...splitExtraArgs(process.env.LIBAVIF_CMAKE_ARGS)
   ];
 
+  if (generatorPlatform) {
+    cmakeArgs.push('-A', generatorPlatform);
+  }
+  if (!isMultiConfigGenerator(generator)) {
+    cmakeArgs.push('-DCMAKE_BUILD_TYPE=Release');
+  }
+
   if (process.platform === 'win32') {
     cmakeArgs.push('-DCMAKE_POLICY_DEFAULT_CMP0091=NEW', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded');
-    if (generator.toLowerCase().includes('ninja')) {
+    if (generator.toLowerCase().includes('ninja') && !generator.toLowerCase().includes('multi-config')) {
       cmakeArgs.push('-DCMAKE_C_COMPILER=cl', '-DCMAKE_CXX_COMPILER=cl');
     }
   } else if (process.platform === 'linux') {
