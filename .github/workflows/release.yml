@@ -15,8 +15,8 @@ jobs:
     name: test js
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - run: npm test
@@ -40,9 +40,9 @@ jobs:
           - key: win32-x64
             os: windows-2025
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -54,7 +54,9 @@ jobs:
 
       - name: Install build tools on macOS
         if: runner.os == 'macOS'
-        run: brew install cmake nasm ninja pkg-config
+        run: |
+          brew untap aws/tap || true
+          brew install cmake nasm ninja pkg-config
 
       - name: Install build tools on Windows
         if: runner.os == 'Windows'
@@ -73,7 +75,7 @@ jobs:
           TARGET_PLATFORM_KEY: ${{ matrix.key }}
 
       - name: Upload native binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vendor-${{ matrix.key }}
           path: vendor/${{ matrix.key }}
@@ -84,13 +86,13 @@ jobs:
     needs: build-native
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
       - name: Download native artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: vendor-artifacts
 
@@ -110,7 +112,7 @@ jobs:
         run: npm pack
 
       - name: Upload npm package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: npm-package
           path: '*.tgz'
@@ -122,12 +124,12 @@ jobs:
     needs: pack
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: npm-package
           path: .
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
