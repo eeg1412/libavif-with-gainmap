@@ -18,6 +18,22 @@ class AvifGainMapError extends Error {
   }
 }
 
+const WINDOWS_STATUS_DLL_NOT_FOUND = 0xc0000135;
+
+function isWindowsDllNotFound(exitCode) {
+  return exitCode === WINDOWS_STATUS_DLL_NOT_FOUND || exitCode === -1073741515;
+}
+
+function formatExitMessage(command, exitCode) {
+  let message = `${command} exited with code ${exitCode}.`;
+  if (process.platform === 'win32' && isWindowsDllNotFound(exitCode)) {
+    message +=
+      ' Windows status 0xC0000135 means the native executable could not start because a required DLL was not found. ' +
+      'Upgrade libavif-with-gainmap or reinstall a package version whose Windows binaries are built with MSVC.';
+  }
+  return message;
+}
+
 function runFile(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -63,7 +79,7 @@ function runFile(command, args, options = {}) {
         return;
       }
       reject(
-        new AvifGainMapError(`${command} exited with code ${exitCode}.`, {
+        new AvifGainMapError(formatExitMessage(command, exitCode), {
           ...result
         })
       );

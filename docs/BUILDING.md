@@ -6,14 +6,24 @@
 
 1. 跑 JS 测试。
 2. 用 matrix 分别构筑五个平台的 libavif 工具：
-   - `linux-x64` on `ubuntu-24.04`
-   - `linux-arm64` on `ubuntu-24.04-arm`
+   - `linux-x64` on `ubuntu-22.04`
+   - `linux-arm64` on `ubuntu-22.04-arm`
    - `darwin-x64` on `macos-15-intel`
-   - `darwin-arm64` on `macos-15`
-   - `win32-x64` on `windows-2025`
-3. 汇总 `vendor/<platform>-<arch>/` 后执行 `npm pack`，tag 触发时再用 npm Trusted Publishing 发布。
+   - `darwin-arm64` on `macos-14`
+   - `win32-x64` on `windows-2022`
+3. 对每个平台的二进制做依赖审计，汇总 `vendor/<platform>-<arch>/` 后执行 `npm pack`，tag 触发时再用 npm Trusted Publishing 发布。
 
 手动运行 workflow 只会构筑和打包，不会发布。只有推送 `v*` tag 时，`publish npm` job 才会运行。
+
+## 原生二进制门禁
+
+发布包不是只检查文件是否存在。`npm run check-prebuilt` 会执行这些硬检查：
+
+- Windows: 解析 PE import table，要求 `win32-x64` 架构正确，禁止 MinGW runtime DLL 和动态 MSVC runtime DLL。
+- Linux: 解析 ELF header，要求 `x64` / `arm64` 架构正确；用 `readelf` 检查动态库，只允许 glibc 系统库；要求 GLIBC 版本不高于 `2.35`。
+- macOS: 用 `lipo` 检查架构；用 `otool -L` 禁止 Homebrew/非系统 dylib；用 `otool -l` 检查最低 macOS 版本不高于 `12.0`。
+
+如果这些检查失败，workflow 必须失败，不能发布。
 
 ## npm Trusted Publishing
 
@@ -41,11 +51,9 @@ permissions:
 正式发布：
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.4
+git push origin v0.1.4
 ```
-
-如果 npm 页面暂时不能为尚未发布过的包配置 Trusted Publishing，需要先按 npm 当前界面要求完成一次包名占用/首次发布，然后再启用 Trusted Publishing。启用后后续版本都可以只靠 tag 自动发布。
 
 ## 本地构筑当前平台
 
@@ -73,6 +81,7 @@ vendor/<platform>-<arch>/
 - `LIBAVIF_INSTALL_DIR`: 自定义 CMake install 目录。
 - `LIBAVIF_CMAKE_ARGS`: 追加 CMake 参数。
 - `TARGET_PLATFORM_KEY`: 写入哪个 `vendor/<key>` 目录，默认当前平台。
+- `MACOSX_DEPLOYMENT_TARGET`: macOS 最低部署版本，默认 `12.0`。
 
 示例：
 

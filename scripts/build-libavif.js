@@ -20,6 +20,7 @@ const buildDir = process.env.LIBAVIF_BUILD_DIR || path.join(cacheDir, `build-${L
 const installDir = process.env.LIBAVIF_INSTALL_DIR || path.join(cacheDir, `install-${LIBAVIF_VERSION}`);
 const platformKey = process.env.TARGET_PLATFORM_KEY || getPlatformKey();
 const vendorDir = path.join(root, 'vendor', platformKey);
+const macosDeploymentTarget = process.env.MACOSX_DEPLOYMENT_TARGET || '12.0';
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -116,7 +117,17 @@ function configureAndBuild() {
   ];
 
   if (process.platform === 'win32') {
-    cmakeArgs.push('-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded');
+    cmakeArgs.push('-DCMAKE_POLICY_DEFAULT_CMP0091=NEW', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded');
+    if (generator.toLowerCase().includes('ninja')) {
+      cmakeArgs.push('-DCMAKE_C_COMPILER=cl', '-DCMAKE_CXX_COMPILER=cl');
+    }
+  } else if (process.platform === 'linux') {
+    cmakeArgs.push(
+      '-DCMAKE_EXE_LINKER_FLAGS=-static-libgcc -static-libstdc++',
+      '-DCMAKE_SHARED_LINKER_FLAGS=-static-libgcc -static-libstdc++'
+    );
+  } else if (process.platform === 'darwin') {
+    cmakeArgs.push(`-DCMAKE_OSX_DEPLOYMENT_TARGET=${macosDeploymentTarget}`);
   }
 
   run('cmake', cmakeArgs);
@@ -124,44 +135,14 @@ function configureAndBuild() {
   run('cmake', ['--install', buildDir, '--config', 'Release']);
 }
 
-function findBuiltBinary(fileName) {
-  const candidates = [
-    path.join(installDir, 'bin', fileName),
-    path.join(buildDir, fileName),
-    path.join(buildDir, 'Release', fileName)
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  const stack = [buildDir];
-  while (stack.length > 0) {
-    const dir = stack.pop();
-    if (!fs.existsSync(dir)) {
-      continue;
-    }
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(fullPath);
-      } else if (entry.isFile() && entry.name === fileName) {
-        return fullPath;
-      }
-    }
-  }
-  return null;
-}
-
 function copyBinaries() {
   fs.mkdirSync(vendorDir, { recursive: true });
   for (const tool of [TOOL_GAINMAP_UTIL, TOOL_GAINMAP_RESIZE]) {
     const name = executableName(tool, platformKey);
-    const from = findBuiltBinary(name);
+    const from = path.join(installDir, 'bin', name);
     const to = path.join(vendorDir, name);
-    if (!from) {
-      throw new Error(`Expected built binary was not found: ${name}`);
+    if (!fs.existsSync(from)) {
+      throw new Error(`Expected installed binary was not found: ${from}`);
     }
     fs.copyFileSync(from, to);
     if (!platformKey.startsWith('win32-')) {

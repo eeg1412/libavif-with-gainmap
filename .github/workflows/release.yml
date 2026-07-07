@@ -30,15 +30,15 @@ jobs:
       matrix:
         include:
           - key: linux-x64
-            os: ubuntu-24.04
+            os: ubuntu-22.04
           - key: linux-arm64
-            os: ubuntu-24.04-arm
+            os: ubuntu-22.04-arm
           - key: darwin-x64
             os: macos-15-intel
           - key: darwin-arm64
-            os: macos-15
+            os: macos-14
           - key: win32-x64
-            os: windows-2025
+            os: windows-2022
     steps:
       - uses: actions/checkout@v7
 
@@ -50,7 +50,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build nasm pkg-config
+          sudo apt-get install -y binutils cmake ninja-build nasm pkg-config
 
       - name: Install build tools on macOS
         if: runner.os == 'macOS'
@@ -65,9 +65,20 @@ jobs:
       - run: npm test
 
       - name: Build libavif tools
+        if: runner.os != 'Windows'
         run: npm run build:libavif
         env:
           TARGET_PLATFORM_KEY: ${{ matrix.key }}
+
+      - name: Build libavif tools on Windows with MSVC
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=amd64
+          npm run build:libavif
+        env:
+          TARGET_PLATFORM_KEY: ${{ matrix.key }}
+          CMAKE_GENERATOR: Ninja
 
       - name: Check current platform binaries
         run: npm run check-prebuilt
@@ -90,6 +101,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
+
+      - name: Install package audit tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils
 
       - name: Download native artifacts
         uses: actions/download-artifact@v8
