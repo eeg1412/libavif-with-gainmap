@@ -5,6 +5,7 @@
 ## 特性
 
 - 使用 libavif 的 `avifgainmaputil convert` 做 JPEG gain map -> AVIF gain map。
+- 使用 `avifgainmapprobe` 严格检测 JPEG 是否包含可由 libavif 解析的 gain map，检测过程不编码 AVIF。
 - 支持 `quality`、`gainMapQuality`、`speed`、`jobs`、`depth`、`yuv` 等编码参数。
 - 支持 `width`/`height` 精确尺寸，或 `maxWidth`/`maxHeight` 等比缩小。
 - GitHub Actions matrix 构筑这些平台的原生工具：`darwin-arm64`、`darwin-x64`、`linux-arm64`、`linux-x64`、`win32-x64`。
@@ -22,6 +23,7 @@ npm install libavif-with-gainmap
 
 ```sh
 avif-gainmap convert input.jpg output.avif --quality 82 --gain-map-quality 70
+avif-gainmap probe input.jpg
 ```
 
 调整尺寸：
@@ -46,7 +48,7 @@ avif-gainmap convert input.jpg output.avif \
 ## JS API
 
 ```js
-const { convertJpegGainMap } = require('libavif-with-gainmap');
+const { convertJpegGainMap, probeJpegGainMap } = require('libavif-with-gainmap');
 
 await convertJpegGainMap('input.jpg', 'output.avif', {
   quality: 82,
@@ -55,9 +57,14 @@ await convertJpegGainMap('input.jpg', 'output.avif', {
   maxHeight: 1200,
   jobs: 'all'
 });
+
+const probe = await probeJpegGainMap('input.jpg');
+// { hasGainMap: true, input, width, height, gainMap: { width, height, baseHeadroom, alternateHeadroom } }
 ```
 
 如果只给 `width` 或 `height`，另一边会按比例计算。`maxWidth` / `maxHeight` 只会缩小，不会放大。
+
+默认输出 `YUV420`，优先兼容 Windows 图片查看器等系统解码器。需要更高色度保真度时，可以显式传 `yuv: '444'` 或 CLI `--yuv 444`。
 
 ## 消费端测试项目
 
@@ -83,9 +90,10 @@ npm test
 
 默认使用 npm 包内的二进制。也可以用环境变量覆盖：
 
-- `AVIF_GAINMAP_BIN_DIR`: 同时包含 `avifgainmaputil` 和 `avifgainmapresize` 的目录。
+- `AVIF_GAINMAP_BIN_DIR`: 同时包含 `avifgainmaputil`、`avifgainmapresize` 和 `avifgainmapprobe` 的目录。
 - `AVIF_GAINMAPUTIL_PATH`: 指向自定义 `avifgainmaputil`。
 - `AVIF_GAINMAPRESIZE_PATH`: 指向自定义 `avifgainmapresize`。
+- `AVIF_GAINMAPPROBE_PATH`: 指向自定义 `avifgainmapprobe`。
 
 ## 构筑
 

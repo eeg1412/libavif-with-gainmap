@@ -5,6 +5,7 @@ const os = require('node:os');
 const DEFAULT_QUALITY = 80;
 const DEFAULT_GAIN_MAP_QUALITY = 60;
 const DEFAULT_SPEED = 6;
+const DEFAULT_YUV = '420';
 
 function toInteger(name, value) {
   if (typeof value === 'number' && Number.isInteger(value)) {
@@ -125,7 +126,7 @@ function normalizeConvertOptions(options = {}) {
     swapBase: Boolean(options.swapBase),
     toolPaths: options.toolPaths,
     verbose: Boolean(options.verbose),
-    yuv: optionalChoice('yuv', options.yuv, ['auto', '444', '422', '420', '400'])
+    yuv: optionalChoice('yuv', options.yuv ?? DEFAULT_YUV, ['auto', '444', '422', '420', '400'])
   };
 }
 
@@ -133,6 +134,7 @@ module.exports = {
   DEFAULT_GAIN_MAP_QUALITY,
   DEFAULT_QUALITY,
   DEFAULT_SPEED,
+  DEFAULT_YUV,
   normalizeConvertOptions,
   normalizeJobs,
   normalizeSize

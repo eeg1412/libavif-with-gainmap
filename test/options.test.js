@@ -11,6 +11,7 @@ test('normalizes default conversion options', () => {
   assert.equal(options.gainMapQuality, 60);
   assert.equal(options.speed, 6);
   assert.equal(options.size, null);
+  assert.equal(options.yuv, '420');
 });
 
 test('normalizes resize dimensions', () => {

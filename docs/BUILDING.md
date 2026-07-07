@@ -51,8 +51,8 @@ permissions:
 正式发布：
 
 ```sh
-git tag v0.1.5
-git push origin v0.1.5
+git tag v0.1.7
+git push origin v0.1.7
 ```
 
 ## 本地构筑当前平台
@@ -71,6 +71,7 @@ npm run check-prebuilt
 vendor/<platform>-<arch>/
   avifgainmaputil(.exe)
   avifgainmapresize(.exe)
+  avifgainmapprobe(.exe)
 ```
 
 ## 可配置环境变量
@@ -93,4 +94,4 @@ LIBAVIF_VERSION=v1.4.2 TARGET_PLATFORM_KEY=linux-x64 npm run build:libavif
 
 libavif 是 C/C++ 原生项目，不能构筑一个跨所有系统通用的二进制。本仓库选择在 GitHub Actions 上按平台分别构筑，然后把产物放入 npm tarball。运行时由 Node.js 选择当前平台的二进制。
 
-`avifgainmaputil` 来自 libavif；`avifgainmapresize` 是本仓库的很小一层 C helper，通过 public libavif API 解码、缩放、重编码 AVIF gain map。
+`avifgainmaputil` 来自 libavif；`avifgainmapresize` 是本仓库的很小一层 C helper，通过 public libavif API 解码、缩放、重编码 AVIF gain map；`avifgainmapprobe` 是本仓库的 C++ helper，复用 libavif 的 JPEG gain map 读取逻辑，只解析并检测 JPEG 是否包含可用 gain map，不编码 AVIF。

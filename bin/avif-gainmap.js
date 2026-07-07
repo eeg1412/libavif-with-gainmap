@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-const { convertJpegGainMap } = require('../src');
+const { convertJpegGainMap, probeJpegGainMap } = require('../src');
 const { normalizeJobs } = require('../src/options');
 const { version } = require('../package.json');
 
@@ -10,6 +10,7 @@ function printHelp() {
 
 Usage:
   avif-gainmap convert <input.jpg> <output.avif> [options]
+  avif-gainmap probe <input.jpg> [options]
 
 Options:
   -q, --quality <0-100>            AVIF color quality. Default: 80
@@ -24,7 +25,7 @@ Options:
       --cicp <P/T/M>               Override input CICP values.
       --clli <MaxCLL,MaxPALL>      Set alternate image light level information.
       --depth <8|10|12>            Output bit depth passed to libavif.
-      --yuv <444|422|420|400>      Output YUV format passed to libavif.
+      --yuv <444|422|420|400>      Output YUV format passed to libavif. Default: 420
       --keep-temp                  Keep intermediate AVIF when resizing.
       --verbose                    Stream native tool output.
   -h, --help                       Show this help.
@@ -114,6 +115,42 @@ function parseConvertArgs(args) {
   return { input: positional[0], options, output: positional[1] };
 }
 
+function parseProbeArgs(args) {
+  const options = {};
+  const positional = [];
+
+  for (let i = 0; i < args.length; i += 1) {
+    const raw = args[i];
+    const eq = raw.indexOf('=');
+    const flag = eq === -1 ? raw : raw.slice(0, eq);
+    const inlineValue = eq === -1 ? undefined : raw.slice(eq + 1);
+
+    switch (flag) {
+      case '-h':
+      case '--help':
+        printHelp();
+        return null;
+      case '--jobs': {
+        const result = readValue(args, i, inlineValue, flag);
+        options.jobs = normalizeJobs(result[0]);
+        i = result[1];
+        break;
+      }
+      default:
+        if (raw.startsWith('-')) {
+          throw new Error(`Unknown option ${raw}.`);
+        }
+        positional.push(raw);
+    }
+  }
+
+  if (positional.length !== 1) {
+    throw new Error('probe requires <input.jpg>.');
+  }
+
+  return { input: positional[0], options };
+}
+
 async function main(argv) {
   const command = argv[2];
   if (!command || command === '-h' || command === '--help') {
@@ -122,6 +159,16 @@ async function main(argv) {
   }
   if (command === '--version') {
     process.stdout.write(`${version}\n`);
+    return;
+  }
+  if (command === 'probe') {
+    const parsed = parseProbeArgs(argv.slice(3));
+    if (!parsed) {
+      return;
+    }
+    const { input, options } = parsed;
+    const result = await probeJpegGainMap(input, options);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
   }
   if (command !== 'convert') {

@@ -5,7 +5,8 @@ const path = require('node:path');
 
 const TOOL_GAINMAP_UTIL = 'avifgainmaputil';
 const TOOL_GAINMAP_RESIZE = 'avifgainmapresize';
-const TOOL_NAMES = Object.freeze([TOOL_GAINMAP_UTIL, TOOL_GAINMAP_RESIZE]);
+const TOOL_GAINMAP_PROBE = 'avifgainmapprobe';
+const TOOL_NAMES = Object.freeze([TOOL_GAINMAP_UTIL, TOOL_GAINMAP_RESIZE, TOOL_GAINMAP_PROBE]);
 
 const SUPPORTED_PLATFORM_KEYS = Object.freeze([
   'darwin-arm64',
@@ -51,8 +52,12 @@ function resolveTool(tool, options = {}) {
     return path.resolve(toolPaths[tool]);
   }
 
-  const envName =
-    tool === TOOL_GAINMAP_UTIL ? 'AVIF_GAINMAPUTIL_PATH' : 'AVIF_GAINMAPRESIZE_PATH';
+  const envNames = {
+    [TOOL_GAINMAP_PROBE]: 'AVIF_GAINMAPPROBE_PATH',
+    [TOOL_GAINMAP_RESIZE]: 'AVIF_GAINMAPRESIZE_PATH',
+    [TOOL_GAINMAP_UTIL]: 'AVIF_GAINMAPUTIL_PATH'
+  };
+  const envName = envNames[tool];
   if (process.env[envName]) {
     return path.resolve(process.env[envName]);
   }
@@ -77,6 +82,7 @@ function assertToolAvailable(toolPath, tool) {
 
 module.exports = {
   SUPPORTED_PLATFORM_KEYS,
+  TOOL_GAINMAP_PROBE,
   TOOL_GAINMAP_RESIZE,
   TOOL_GAINMAP_UTIL,
   TOOL_NAMES,

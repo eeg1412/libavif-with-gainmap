@@ -49,16 +49,18 @@ npm run test:cli
 输出文件：
 
 ```text
-examples/consumer-test/outputs/api-output.avif
-examples/consumer-test/outputs/cli-output.avif
+examples/consumer-test/outputs/api-output-<runId>.avif
+examples/consumer-test/outputs/cli-output-<runId>.avif
 ```
 
-脚本会检查输出文件是否存在、是否非空、文件头是否是 AVIF/ISOBMFF。真正是否保留 gain map 由底层 `avifgainmaputil` / `avifgainmapresize` 决定；如果输入不是带 gain map 的 JPEG，转换通常会失败。
+`<runId>` 会随每次运行变化，避免 Windows 上旧输出文件被图片查看器或其他进程占用时导致覆盖失败。
+
+脚本会先调用 `probeJpegGainMap()` 严格检测输入 JPEG 是否包含可由 libavif 解析的 gain map，然后检查输出文件是否存在、是否非空、文件头是否是 AVIF/ISOBMFF。
 
 ## 可选参数
 
 ```sh
-npm test -- --quality 82 --gain-map-quality 70 --max-width 1600 --max-height 1200
+npm test -- --quality 82 --gain-map-quality 70 --max-width 1600 --max-height 1200 --yuv 420
 ```
 
 常用参数：
@@ -70,4 +72,5 @@ npm test -- --quality 82 --gain-map-quality 70 --max-width 1600 --max-height 120
 - `--gain-map-quality <0-100>`: gain map 质量，默认 `65`。
 - `--max-width <px>`: 最大宽度，默认 `1600`。
 - `--max-height <px>`: 最大高度，默认 `1200`。
+- `--yuv <444|422|420|400>`: 输出 YUV 格式，默认 `420`。Windows 图片查看器兼容性优先时使用 `420`；需要对比色度保真度时可试 `444`。
 - `--jobs <n|all>`: 线程数，默认 `all`。

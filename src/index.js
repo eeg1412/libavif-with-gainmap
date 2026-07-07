@@ -8,6 +8,7 @@ const { normalizeConvertOptions } = require('./options');
 const { AvifGainMapError, runFile } = require('./process');
 const {
   SUPPORTED_PLATFORM_KEYS,
+  TOOL_GAINMAP_PROBE,
   TOOL_GAINMAP_RESIZE,
   TOOL_GAINMAP_UTIL,
   assertToolAvailable,
@@ -112,6 +113,34 @@ async function convertJpegGainMap(input, output, rawOptions = {}) {
   }
 }
 
+async function probeJpegGainMap(input, rawOptions = {}) {
+  input = asPath('input', input);
+
+  const options = normalizeConvertOptions(rawOptions);
+  const probePath = assertToolAvailable(
+    resolveTool(TOOL_GAINMAP_PROBE, options),
+    TOOL_GAINMAP_PROBE
+  );
+  const args = [];
+  pushOption(args, '--jobs', options.jobs);
+  args.push(input);
+
+  const probe = await runFile(probePath, args, { ...options, verbose: false });
+  let parsed;
+  try {
+    parsed = JSON.parse(probe.stdout);
+  } catch (cause) {
+    throw new AvifGainMapError(`Failed to parse ${TOOL_GAINMAP_PROBE} output as JSON.`, {
+      ...probe,
+      cause
+    });
+  }
+  return {
+    ...parsed,
+    input: path.resolve(input)
+  };
+}
+
 async function runAvifGainMapUtil(args, rawOptions = {}) {
   if (!Array.isArray(args)) {
     throw new TypeError('args must be an array.');
@@ -130,5 +159,6 @@ module.exports = {
   convert: convertJpegGainMap,
   convertJpegGainMap,
   getPlatformKey,
+  probeJpegGainMap,
   runAvifGainMapUtil
 };

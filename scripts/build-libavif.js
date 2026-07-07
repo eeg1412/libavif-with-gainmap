@@ -5,8 +5,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const {
-  TOOL_GAINMAP_RESIZE,
-  TOOL_GAINMAP_UTIL,
+  TOOL_NAMES,
   executableName,
   getPlatformKey,
   packageRoot
@@ -61,37 +60,63 @@ function ensureSource() {
   ]);
 }
 
-function installResizeToolSource() {
+function installNativeToolSources() {
   fs.copyFileSync(
     path.join(root, 'native', 'avifgainmapresize.c'),
     path.join(sourceDir, 'apps', 'avifgainmapresize.c')
+  );
+  fs.copyFileSync(
+    path.join(root, 'native', 'avifgainmapprobe.cc'),
+    path.join(sourceDir, 'apps', 'avifgainmaputil', 'avifgainmapprobe.cc')
   );
 }
 
 function patchCMake() {
   const cmakePath = path.join(sourceDir, 'CMakeLists.txt');
   let content = fs.readFileSync(cmakePath, 'utf8');
-  if (!content.includes('avifgainmapresize')) {
+  const hasResizeTarget = /add_executable\s*\(\s*avifgainmapresize\b/.test(content);
+  const hasProbeTarget = /add_executable\s*\(\s*avifgainmapprobe\b/.test(content);
+  if (!hasResizeTarget || !hasProbeTarget) {
     const linkNeedle = 'target_link_libraries(avifgainmaputil libargparse avif_apps avif avif_enable_warnings)';
     if (!content.includes(linkNeedle)) {
       throw new Error('Unable to patch libavif CMakeLists.txt: avifgainmaputil target not found.');
+    }
+    const additions = [];
+    if (!hasResizeTarget) {
+      additions.push(`add_executable(avifgainmapresize apps/avifgainmapresize.c)
+    if(AVIF_LIB_USE_CXX)
+        set_target_properties(avifgainmapresize PROPERTIES LINKER_LANGUAGE "CXX")
+    endif()
+    target_link_libraries(avifgainmapresize avif avif_enable_warnings)`);
+    }
+    if (!hasProbeTarget) {
+      additions.push(`add_executable(
+        avifgainmapprobe
+        apps/avifgainmaputil/avifgainmapprobe.cc
+        apps/avifgainmaputil/imageio.cc
+    )
+    if(WIN32)
+        if(MSVC)
+            target_sources(avifgainmapprobe PRIVATE apps/utf8.manifest)
+        elseif(MINGW)
+            target_sources(avifgainmapprobe PRIVATE apps/utf8.rc)
+        endif()
+    endif()
+    set_target_properties(avifgainmapprobe PROPERTIES LINKER_LANGUAGE "CXX")
+    target_link_libraries(avifgainmapprobe avif_apps avif avif_enable_warnings)`);
     }
     content = content.replace(
       linkNeedle,
       `${linkNeedle}
 
-    add_executable(avifgainmapresize apps/avifgainmapresize.c)
-    if(AVIF_LIB_USE_CXX)
-        set_target_properties(avifgainmapresize PROPERTIES LINKER_LANGUAGE "CXX")
-    endif()
-    target_link_libraries(avifgainmapresize avif avif_enable_warnings)`
+    ${additions.join('\n\n    ')}`
     );
 
   }
 
   content = content.replace(
-    /TARGETS\s+avifenc\s+avifdec\s+avifgainmaputil(?!\s+avifgainmapresize)/,
-    'TARGETS avifenc avifdec avifgainmaputil avifgainmapresize'
+    /TARGETS\s+avifenc\s+avifdec\s+avifgainmaputil(?:\s+avifgainmapresize)?(?!\s+avifgainmapprobe)/,
+    'TARGETS avifenc avifdec avifgainmaputil avifgainmapresize avifgainmapprobe'
   );
   fs.writeFileSync(cmakePath, content);
 }
@@ -148,7 +173,7 @@ function configureAndBuild() {
 
 function copyBinaries() {
   fs.mkdirSync(vendorDir, { recursive: true });
-  for (const tool of [TOOL_GAINMAP_UTIL, TOOL_GAINMAP_RESIZE]) {
+  for (const tool of TOOL_NAMES) {
     const name = executableName(tool, platformKey);
     const from = path.join(installDir, 'bin', name);
     const to = path.join(vendorDir, name);
@@ -163,7 +188,7 @@ function copyBinaries() {
 }
 
 ensureSource();
-installResizeToolSource();
+installNativeToolSources();
 patchCMake();
 configureAndBuild();
 copyBinaries();
