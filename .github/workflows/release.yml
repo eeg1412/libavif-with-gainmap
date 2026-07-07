@@ -60,7 +60,15 @@ jobs:
 
       - name: Install build tools on Windows
         if: runner.os == 'Windows'
-        run: choco install ninja nasm -y
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install nasm -y --no-progress
+          $nasmDir = Join-Path $env:ProgramFiles 'NASM'
+          if (Test-Path $nasmDir) {
+            Add-Content -Path $env:GITHUB_PATH -Value $nasmDir
+            $env:Path = "$nasmDir;$env:Path"
+          }
+          nasm -v
 
       - run: npm test
 

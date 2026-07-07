@@ -21,7 +21,7 @@
 
 - Windows: 解析 PE import table，要求 `win32-x64` 架构正确，禁止 MinGW runtime DLL 和动态 MSVC runtime DLL。
 - Linux: 解析 ELF header，要求 `x64` / `arm64` 架构正确；用 `readelf` 检查动态库，只允许 glibc 系统库和系统动态加载器；要求 GLIBC 版本不高于 `2.35`。
-- macOS: 用 `lipo` 检查架构；用 `otool -L` 禁止 Homebrew/非系统 dylib；用 `otool -l` 检查最低 macOS 版本不高于 `12.0`。
+- macOS: 直接解析 Mach-O header 和 load commands，要求 `x64` / `arm64` 架构正确，禁止 Homebrew/非系统 dylib，要求最低 macOS 版本不高于 `12.0`。
 
 如果这些检查失败，workflow 必须失败，不能发布。
 
@@ -57,7 +57,7 @@ git push origin v0.1.5
 
 ## 本地构筑当前平台
 
-需要 `git`、`cmake`、`ninja`、`nasm`、Node.js 18+。
+需要 `git`、`cmake`、`ninja`、`nasm`、Node.js 18+。Windows 构筑必须能直接执行 `nasm -v`，否则 `aom` 的 CMake 配置会失败。
 
 ```sh
 npm test
