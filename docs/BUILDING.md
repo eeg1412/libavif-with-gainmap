@@ -11,20 +11,41 @@
    - `darwin-x64` on `macos-15-intel`
    - `darwin-arm64` on `macos-15`
    - `win32-x64` on `windows-2025`
-3. 汇总 `vendor/<platform>-<arch>/` 后执行 `npm pack`，tag 触发时再 `npm publish`。
+3. 汇总 `vendor/<platform>-<arch>/` 后执行 `npm pack`，tag 触发时再用 npm Trusted Publishing 发布。
 
-发布到 npm 前，在仓库 secrets 里配置：
+手动运行 workflow 只会构筑和打包，不会发布。只有推送 `v*` tag 时，`publish npm` job 才会运行。
 
-```text
-NPM_TOKEN=<npm automation token>
+## npm Trusted Publishing
+
+本仓库使用 npm Trusted Publishing/OIDC，不需要 `NPM_TOKEN`。
+
+在 npmjs.com 配置：
+
+1. 打开 package 的 Settings。
+2. 找到 Trusted publishing。
+3. 选择 GitHub Actions。
+4. 填写：
+   - Organization or user: `eeg1412`
+   - Repository: `libavif-with-gainmap`
+   - Workflow filename: `release.yml`
+   - Allowed actions: `npm publish`
+
+npm 官方要求 Trusted Publishing 使用支持 OIDC 的云端 CI runner。这个 workflow 已经配置：
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
 ```
 
-然后创建 tag：
+正式发布：
 
 ```sh
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+如果 npm 页面暂时不能为尚未发布过的包配置 Trusted Publishing，需要先按 npm 当前界面要求完成一次包名占用/首次发布，然后再启用 Trusted Publishing。启用后后续版本都可以只靠 tag 自动发布。
 
 ## 本地构筑当前平台
 
