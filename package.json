@@ -1,0 +1,46 @@
+{
+  "name": "libavif-with-gainmap",
+  "version": "0.1.0",
+  "description": "Convert JPEG gain map images to AVIF gain map images using libavif.",
+  "license": "MIT",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eeg1412/libavif-with-gainmap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eeg1412/libavif-with-gainmap/issues"
+  },
+  "homepage": "https://github.com/eeg1412/libavif-with-gainmap#readme",
+  "main": "src/index.js",
+  "bin": {
+    "avif-gainmap": "bin/avif-gainmap.js"
+  },
+  "files": [
+    "bin",
+    "docs",
+    "native",
+    "scripts",
+    "src",
+    "vendor",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "build:libavif": "node scripts/build-libavif.js",
+    "check-prebuilt": "node scripts/check-prebuilt.js --current",
+    "check-prebuilt:all": "node scripts/check-prebuilt.js --all"
+  },
+  "keywords": [
+    "avif",
+    "gainmap",
+    "hdr",
+    "ultrahdr",
+    "libavif",
+    "jpeg"
+  ]
+}

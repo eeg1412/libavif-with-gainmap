@@ -1,0 +1,8 @@
+node_modules/
+vendor/
+.cache/
+.agents/
+.codex/
+*.tgz
+coverage/
+.DS_Store
