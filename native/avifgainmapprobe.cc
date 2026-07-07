@@ -61,7 +61,8 @@ int silenceStdout()
     return saved;
 }
 
-double fractionToDouble(const avifFraction & fraction)
+template <typename Fraction>
+double fractionToDouble(const Fraction & fraction)
 {
     return fraction.d != 0 ? static_cast<double>(fraction.n) / fraction.d : 0.0;
 }
