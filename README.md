@@ -59,6 +59,26 @@ await convertJpegGainMap('input.jpg', 'output.avif', {
 
 如果只给 `width` 或 `height`，另一边会按比例计算。`maxWidth` / `maxHeight` 只会缩小，不会放大。
 
+## 消费端测试项目
+
+仓库里有一个独立测试项目：[examples/consumer-test](examples/consumer-test)。
+
+把你自己的 JPEG gain map 图片放到：
+
+```text
+examples/consumer-test/images/input.jpg
+```
+
+然后执行：
+
+```sh
+cd examples/consumer-test
+npm install
+npm test
+```
+
+输出会写到 `examples/consumer-test/outputs/`。
+
 ## 原生工具覆盖
 
 默认使用 npm 包内的二进制。也可以用环境变量覆盖：
