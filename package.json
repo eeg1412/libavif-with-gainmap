@@ -1,6 +1,6 @@
 {
   "name": "libavif-with-gainmap",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Convert JPEG gain map images to AVIF gain map images using libavif.",
   "license": "MIT",
   "type": "commonjs",
