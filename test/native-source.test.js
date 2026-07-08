@@ -102,6 +102,17 @@ test('single-pass gain map convert can strip Exif and XMP metadata', () => {
   assert.match(source, /avifRWDataFree\(&image->gainMap->image->xmp\)/);
 });
 
+test('single-pass gain map convert bakes orientation before resize', () => {
+  const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
+
+  assert.match(source, /bakeImageOrientation\(image\)/);
+  assert.match(source, /bakeOrientationIntoPixels\(image->gainMap->image,\s*transformFlags,\s*irot,\s*imir\)/);
+  assert.match(source, /AVIF_TRANSFORM_IROT \| AVIF_TRANSFORM_IMIR/);
+  assert.match(source, /avifGetExifOrientationOffset/);
+  assert.match(source, /image->exif\.data\[orientationOffset\] = 1/);
+  assert.ok(source.indexOf('bakeImageOrientation(image)') < source.indexOf('resizeGainMapImage(image, options)'));
+});
+
 test('JS conversion path does not use two-stage AVIF resize fallback', () => {
   const source = fs.readFileSync(path.join(root, 'src', 'index.js'), 'utf8');
 

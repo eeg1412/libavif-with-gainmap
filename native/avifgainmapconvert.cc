@@ -14,6 +14,7 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -330,6 +331,220 @@ void stripMetadata(avifImage * image)
     }
 }
 
+void resetExifOrientation(avifImage * image)
+{
+    size_t orientationOffset = 0;
+    if (image->exif.data != nullptr &&
+        avifGetExifOrientationOffset(image->exif.data, image->exif.size, &orientationOffset) == AVIF_RESULT_OK &&
+        orientationOffset < image->exif.size) {
+        image->exif.data[orientationOffset] = 1;
+    }
+}
+
+uint32_t roundedShift(uint32_t value, int shift)
+{
+    return shift > 0 ? ((value + ((1u << shift) - 1u)) >> shift) : value;
+}
+
+void planeSize(const avifImage * image, int plane, uint32_t * width, uint32_t * height)
+{
+    if (plane == AVIF_CHAN_A || plane == AVIF_CHAN_Y) {
+        *width = image->width;
+        *height = image->height;
+        return;
+    }
+
+    avifPixelFormatInfo info;
+    avifGetPixelFormatInfo(image->yuvFormat, &info);
+    if (info.monochrome) {
+        *width = 0;
+        *height = 0;
+        return;
+    }
+    *width = roundedShift(image->width, info.chromaShiftX);
+    *height = roundedShift(image->height, info.chromaShiftY);
+}
+
+void orientedSize(uint32_t width, uint32_t height, uint8_t angle, uint32_t * orientedWidth, uint32_t * orientedHeight)
+{
+    if ((angle & 1) != 0) {
+        *orientedWidth = height;
+        *orientedHeight = width;
+    } else {
+        *orientedWidth = width;
+        *orientedHeight = height;
+    }
+}
+
+void transformCoordinates(uint32_t x,
+                          uint32_t y,
+                          uint32_t width,
+                          uint32_t height,
+                          avifBool mirror,
+                          uint8_t mirrorAxis,
+                          uint8_t angle,
+                          uint32_t * outX,
+                          uint32_t * outY)
+{
+    if (mirror) {
+        if (mirrorAxis == 0) {
+            y = height - 1 - y;
+        } else {
+            x = width - 1 - x;
+        }
+    }
+
+    switch (angle & 3) {
+        case 1:
+            *outX = y;
+            *outY = width - 1 - x;
+            break;
+        case 2:
+            *outX = width - 1 - x;
+            *outY = height - 1 - y;
+            break;
+        case 3:
+            *outX = height - 1 - y;
+            *outY = x;
+            break;
+        default:
+            *outX = x;
+            *outY = y;
+            break;
+    }
+}
+
+void transformPlane(const uint8_t * src,
+                    uint32_t srcRowBytes,
+                    uint8_t * dst,
+                    uint32_t dstRowBytes,
+                    uint32_t srcWidth,
+                    uint32_t srcHeight,
+                    uint32_t sampleBytes,
+                    avifBool mirror,
+                    uint8_t mirrorAxis,
+                    uint8_t angle)
+{
+    for (uint32_t y = 0; y < srcHeight; ++y) {
+        const uint8_t * srcRow = src + (static_cast<size_t>(srcRowBytes) * y);
+        for (uint32_t x = 0; x < srcWidth; ++x) {
+            uint32_t dstX = 0;
+            uint32_t dstY = 0;
+            transformCoordinates(x, y, srcWidth, srcHeight, mirror, mirrorAxis, angle, &dstX, &dstY);
+            std::memcpy(dst + (static_cast<size_t>(dstRowBytes) * dstY) + (static_cast<size_t>(dstX) * sampleBytes),
+                        srcRow + (static_cast<size_t>(x) * sampleBytes),
+                        sampleBytes);
+        }
+    }
+}
+
+avifResult bakeOrientationIntoPixels(avifImage * image,
+                                     avifTransformFlags transformFlags,
+                                     avifImageRotation irot,
+                                     avifImageMirror imir)
+{
+    const avifBool hasRotation = (transformFlags & AVIF_TRANSFORM_IROT) != 0;
+    const avifBool hasMirror = (transformFlags & AVIF_TRANSFORM_IMIR) != 0;
+    if (!hasRotation && !hasMirror) {
+        return AVIF_RESULT_OK;
+    }
+
+    const uint8_t angle = hasRotation ? (irot.angle & 3) : 0;
+    uint32_t orientedWidth = 0;
+    uint32_t orientedHeight = 0;
+    orientedSize(image->width, image->height, angle, &orientedWidth, &orientedHeight);
+
+    avifImage * oriented = avifImageCreate(orientedWidth, orientedHeight, image->depth, image->yuvFormat);
+    if (oriented == nullptr) {
+        return AVIF_RESULT_OUT_OF_MEMORY;
+    }
+    oriented->yuvRange = image->yuvRange;
+    oriented->yuvChromaSamplePosition = image->yuvChromaSamplePosition;
+    oriented->alphaPremultiplied = image->alphaPremultiplied;
+
+    avifPlanesFlags planes = 0;
+    if (image->yuvPlanes[AVIF_CHAN_Y] != nullptr) {
+        planes |= AVIF_PLANES_YUV;
+    }
+    if (image->alphaPlane != nullptr) {
+        planes |= AVIF_PLANES_A;
+    }
+
+    avifResult result = avifImageAllocatePlanes(oriented, planes);
+    if (result != AVIF_RESULT_OK) {
+        avifImageDestroy(oriented);
+        return result;
+    }
+
+    const uint32_t sampleBytes = image->depth > 8 ? 2 : 1;
+    for (int plane = AVIF_CHAN_Y; plane <= AVIF_CHAN_V; ++plane) {
+        if (image->yuvPlanes[plane] == nullptr || oriented->yuvPlanes[plane] == nullptr) {
+            continue;
+        }
+        uint32_t srcWidth = 0;
+        uint32_t srcHeight = 0;
+        planeSize(image, plane, &srcWidth, &srcHeight);
+        transformPlane(image->yuvPlanes[plane],
+                       image->yuvRowBytes[plane],
+                       oriented->yuvPlanes[plane],
+                       oriented->yuvRowBytes[plane],
+                       srcWidth,
+                       srcHeight,
+                       sampleBytes,
+                       hasMirror,
+                       imir.axis,
+                       angle);
+    }
+
+    if (image->alphaPlane != nullptr && oriented->alphaPlane != nullptr) {
+        transformPlane(image->alphaPlane,
+                       image->alphaRowBytes,
+                       oriented->alphaPlane,
+                       oriented->alphaRowBytes,
+                       image->width,
+                       image->height,
+                       sampleBytes,
+                       hasMirror,
+                       imir.axis,
+                       angle);
+    }
+
+    avifImageFreePlanes(image, planes);
+    image->width = oriented->width;
+    image->height = oriented->height;
+    avifImageStealPlanes(image, oriented, planes);
+    avifImageDestroy(oriented);
+
+    image->transformFlags &= ~(AVIF_TRANSFORM_IROT | AVIF_TRANSFORM_IMIR);
+    image->irot.angle = 0;
+    image->imir.axis = 0;
+    resetExifOrientation(image);
+    return AVIF_RESULT_OK;
+}
+
+avifResult bakeImageOrientation(avifImage * image)
+{
+    const avifTransformFlags transformFlags = image->transformFlags;
+    const avifImageRotation irot = image->irot;
+    const avifImageMirror imir = image->imir;
+    if ((transformFlags & (AVIF_TRANSFORM_IROT | AVIF_TRANSFORM_IMIR)) == 0) {
+        return AVIF_RESULT_OK;
+    }
+
+    avifResult result = bakeOrientationIntoPixels(image, transformFlags, irot, imir);
+    if (result != AVIF_RESULT_OK) {
+        return result;
+    }
+
+    if (image->gainMap && image->gainMap->image) {
+        result = bakeOrientationIntoPixels(image->gainMap->image, transformFlags, irot, imir);
+        if (result != AVIF_RESULT_OK) {
+            return result;
+        }
+    }
+    return AVIF_RESULT_OK;
+}
+
 bool normalizeGainMapMetadata(avifImage * image)
 {
     if (image->gainMap == nullptr || image->gainMap->image == nullptr) {
@@ -520,6 +735,12 @@ int main(int argc, char ** argv)
         goto cleanup;
     }
     image->gainMap->altCLLI = options.clli;
+
+    result = bakeImageOrientation(image);
+    if (result != AVIF_RESULT_OK) {
+        std::cerr << "Failed to apply image orientation: " << avifResultToString(result) << "\n";
+        goto cleanup;
+    }
 
     if (options.swapBase) {
         int depth = options.depth;
