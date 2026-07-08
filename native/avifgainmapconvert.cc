@@ -403,6 +403,7 @@ int main(int argc, char ** argv)
     avifImage * swapped = nullptr;
     avifEncoder * encoder = nullptr;
     avifRWData encoded = AVIF_DATA_EMPTY;
+    avifResult result = AVIF_RESULT_OK;
     int exitCode = 1;
 
     if (image == nullptr) {
@@ -415,13 +416,13 @@ int main(int argc, char ** argv)
         image->matrixCoefficients = options.matrixCoefficients;
     }
 
-    avifResult result = avif::ReadImage(image,
-                                        options.input,
-                                        options.yuvFormat,
-                                        options.depth,
-                                        /*ignore_profile=*/false,
-                                        /*ignore_gain_map=*/false,
-                                        options.jobs);
+    result = avif::ReadImage(image,
+                             options.input,
+                             options.yuvFormat,
+                             options.depth,
+                             /*ignore_profile=*/false,
+                             /*ignore_gain_map=*/false,
+                             options.jobs);
     if (result != AVIF_RESULT_OK) {
         std::cerr << "Failed to decode image: " << options.input << ": " << avifResultToString(result) << "\n";
         goto cleanup;

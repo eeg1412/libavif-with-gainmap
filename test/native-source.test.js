@@ -25,6 +25,17 @@ test('single-pass gain map convert reads JPEG gain maps directly', () => {
   assert.doesNotMatch(source, /avifDecoderReadFile\(/);
 });
 
+test('single-pass gain map convert declares result before cleanup gotos', () => {
+  const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
+  const resultDeclaration = source.indexOf('avifResult result = AVIF_RESULT_OK;');
+  const firstCleanupGoto = source.indexOf('goto cleanup;');
+
+  assert.ok(resultDeclaration !== -1);
+  assert.ok(firstCleanupGoto !== -1);
+  assert.ok(resultDeclaration < firstCleanupGoto);
+  assert.doesNotMatch(source, /avifResult\s+result\s*=\s*avif::ReadImage/);
+});
+
 test('single-pass gain map convert can strip Exif and XMP metadata', () => {
   const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
 
