@@ -4,7 +4,7 @@
 
 ## 特性
 
-- 使用 libavif 的 `avifgainmaputil convert` 做 JPEG gain map -> AVIF gain map。
+- 使用本包的 `avifgainmapconvert` 做 JPEG gain map -> AVIF gain map，带尺寸转换时直接缩放后只编码一次。
 - 使用 `avifgainmapprobe` 严格检测 JPEG 是否包含可由 libavif 解析的 gain map，检测过程不编码 AVIF。
 - 支持 `quality`、`gainMapQuality`、`speed`、`jobs`、`depth`、`yuv` 等编码参数。
 - 支持 `width`/`height` 精确尺寸，或 `maxWidth`/`maxHeight` 等比缩小。
@@ -92,9 +92,9 @@ npm test
 
 默认使用 npm 包内的二进制。也可以用环境变量覆盖：
 
-- `AVIF_GAINMAP_BIN_DIR`: 同时包含 `avifgainmaputil`、`avifgainmapresize` 和 `avifgainmapprobe` 的目录。
+- `AVIF_GAINMAP_BIN_DIR`: 同时包含 `avifgainmapconvert`、`avifgainmaputil` 和 `avifgainmapprobe` 的目录。
 - `AVIF_GAINMAPUTIL_PATH`: 指向自定义 `avifgainmaputil`。
-- `AVIF_GAINMAPRESIZE_PATH`: 指向自定义 `avifgainmapresize`。
+- `AVIF_GAINMAPCONVERT_PATH`: 指向自定义 `avifgainmapconvert`。
 - `AVIF_GAINMAPPROBE_PATH`: 指向自定义 `avifgainmapprobe`。
 
 ## 构筑
@@ -118,6 +118,6 @@ npm run check-prebuilt
 
 完整发布请看 [docs/BUILDING.md](docs/BUILDING.md)。
 
-## 为什么有 `avifgainmapresize`
+## 为什么有 `avifgainmapconvert`
 
-普通图片 resize 工具通常不了解 JPEG/AVIF gain map 的主图、辅助图和元数据关系，容易丢失或破坏 gain map。这里先用 libavif 官方工具转换，再用一个链接 libavif 的小工具同时缩放 AVIF base image 和 gain map image，最后按目标质量重新编码。
+普通图片 resize 工具通常不了解 JPEG gain map 的主图、辅助图和 HDR 元数据关系，容易丢失或破坏 gain map。本包使用 `avifgainmapconvert` 直接读取 JPEG gain map，先按同一比例缩放 base image 和 gain map image，再只编码一次最终 AVIF。带尺寸转换时不会先生成 full-size 中间 AVIF，也不会用两段式 fallback 隐藏错误。

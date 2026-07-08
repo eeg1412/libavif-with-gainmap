@@ -1,15 +1,13 @@
 'use strict';
 
-const fs = require('node:fs/promises');
-const os = require('node:os');
 const path = require('node:path');
 
 const { normalizeConvertOptions } = require('./options');
 const { AvifGainMapError, runFile } = require('./process');
 const {
   SUPPORTED_PLATFORM_KEYS,
+  TOOL_GAINMAP_CONVERT,
   TOOL_GAINMAP_PROBE,
-  TOOL_GAINMAP_RESIZE,
   TOOL_GAINMAP_UTIL,
   assertToolAvailable,
   getPlatformKey,
@@ -29,14 +27,10 @@ function pushOption(args, flag, value) {
   }
 }
 
-function buildConvertArgs(input, output, options, forResize) {
-  const args = ['convert'];
-  pushOption(args, '--qcolor', forResize ? options.intermediateQuality : options.quality);
-  pushOption(
-    args,
-    '--qgain-map',
-    forResize ? options.intermediateGainMapQuality : options.gainMapQuality
-  );
+function buildConvertArgs(input, output, options) {
+  const args = [input, output];
+  pushOption(args, '--qcolor', options.quality);
+  pushOption(args, '--qgain-map', options.gainMapQuality);
   pushOption(args, '--speed', options.speed);
   pushOption(args, '--jobs', options.jobs);
   pushOption(args, '--depth', options.depth);
@@ -46,17 +40,6 @@ function buildConvertArgs(input, output, options, forResize) {
   if (options.swapBase) {
     args.push('--swap-base');
   }
-  args.push(input, output);
-  return args;
-}
-
-function buildResizeArgs(input, output, options) {
-  const args = [input, output];
-  pushOption(args, '--qcolor', options.quality);
-  pushOption(args, '--qgain-map', options.gainMapQuality);
-  pushOption(args, '--speed', options.speed);
-  pushOption(args, '--jobs', options.jobs);
-
   const size = options.size;
   if (size) {
     pushOption(args, '--width', size.width);
@@ -75,48 +58,21 @@ async function convertJpegGainMap(input, output, rawOptions = {}) {
   output = asPath('output', output);
 
   const options = normalizeConvertOptions(rawOptions);
-  const utilPath = assertToolAvailable(
-    resolveTool(TOOL_GAINMAP_UTIL, options),
-    TOOL_GAINMAP_UTIL
+  const convertPath = assertToolAvailable(
+    resolveTool(TOOL_GAINMAP_CONVERT, options),
+    TOOL_GAINMAP_CONVERT
   );
-  const shouldPostProcess = Boolean(options.size || options.stripMetadata);
-  const resizePath = shouldPostProcess
-    ? assertToolAvailable(resolveTool(TOOL_GAINMAP_RESIZE, options), TOOL_GAINMAP_RESIZE)
-    : null;
 
-  let tempDir;
-  let intermediate = output;
-  try {
-    if (resizePath) {
-      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'avif-gainmap-'));
-      intermediate = path.join(tempDir, 'converted.avif');
-    }
+  const convertArgs = buildConvertArgs(input, output, options);
+  const convert = await runFile(convertPath, convertArgs, options);
 
-    // Post-processing is a second AVIF encode, so the intermediate conversion defaults to lossless.
-    const convertArgs = buildConvertArgs(input, intermediate, options, Boolean(resizePath));
-    const convert = await runFile(utilPath, convertArgs, options);
-
-    let resize = null;
-    if (resizePath) {
-      const resizeArgs = buildResizeArgs(intermediate, output, options);
-      resize = await runFile(resizePath, resizeArgs, options);
-    }
-
-    return {
-      convert,
-      input: path.resolve(input),
-      output: path.resolve(output),
-      postprocessed: Boolean(resize),
-      resize,
-      resized: Boolean(options.size && resize),
-      strippedMetadata: Boolean(options.stripMetadata && resize),
-      tempDir: options.keepTemp ? tempDir : undefined
-    };
-  } finally {
-    if (tempDir && !options.keepTemp) {
-      await fs.rm(tempDir, { force: true, recursive: true });
-    }
-  }
+  return {
+    convert,
+    input: path.resolve(input),
+    output: path.resolve(output),
+    resized: Boolean(options.size),
+    strippedMetadata: Boolean(options.stripMetadata)
+  };
 }
 
 async function probeJpegGainMap(input, rawOptions = {}) {

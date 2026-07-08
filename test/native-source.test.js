@@ -16,14 +16,32 @@ test('gain map probe accepts libavif fraction variants', () => {
   assert.match(source, /fractionToDouble\(gainMap->alternateHdrHeadroom\)/);
 });
 
-test('gain map resize can strip Exif and XMP metadata', () => {
-  const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapresize.c'), 'utf8');
+test('single-pass gain map convert reads JPEG gain maps directly', () => {
+  const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
+
+  assert.match(source, /avif::ReadImage\(/);
+  assert.match(source, /ignore_gain_map.*false/);
+  assert.match(source, /avifEncoderWrite\(/);
+  assert.doesNotMatch(source, /avifDecoderReadFile\(/);
+});
+
+test('single-pass gain map convert can strip Exif and XMP metadata', () => {
+  const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
 
   assert.match(source, /--strip-metadata/);
   assert.match(source, /avifRWDataFree\(&image->exif\)/);
   assert.match(source, /avifRWDataFree\(&image->xmp\)/);
   assert.match(source, /avifRWDataFree\(&image->gainMap->image->exif\)/);
   assert.match(source, /avifRWDataFree\(&image->gainMap->image->xmp\)/);
+});
+
+test('JS conversion path does not use two-stage AVIF resize fallback', () => {
+  const source = fs.readFileSync(path.join(root, 'src', 'index.js'), 'utf8');
+
+  assert.match(source, /TOOL_GAINMAP_CONVERT/);
+  assert.doesNotMatch(source, /TOOL_GAINMAP_RESIZE/);
+  assert.doesNotMatch(source, /converted\.avif/);
+  assert.doesNotMatch(source, /mkdtemp/);
 });
 
 test('CLI exposes metadata stripping option', () => {

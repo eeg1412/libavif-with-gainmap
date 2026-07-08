@@ -28,7 +28,6 @@ Options:
       --yuv <444|422|420|400>      Output YUV format passed to libavif. Default: 420
       --strip-metadata, --strip-privacy
                                    Remove Exif/XMP privacy metadata before writing.
-      --keep-temp                  Keep intermediate AVIF when resizing.
       --verbose                    Stream native tool output.
   -h, --help                       Show this help.
       --version                    Show version.
@@ -99,9 +98,6 @@ function parseConvertArgs(args) {
       case '--strip-metadata':
       case '--strip-privacy':
         options.stripMetadata = true;
-        break;
-      case '--keep-temp':
-        options.keepTemp = true;
         break;
       case '--verbose':
         options.verbose = true;

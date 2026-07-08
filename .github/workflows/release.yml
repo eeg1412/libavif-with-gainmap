@@ -2,6 +2,19 @@ name: build and publish
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Native build target. Use all only for release verification.
+        required: true
+        default: linux-x64
+        type: choice
+        options:
+          - linux-x64
+          - linux-arm64
+          - darwin-x64
+          - darwin-arm64
+          - win32-x64
+          - all
   push:
     tags:
       - 'v*'
@@ -21,24 +34,44 @@ jobs:
           node-version: 22
       - run: npm test
 
+  plan-native:
+    name: plan native builds
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ] || [ "$TARGET" = "all" ]; then
+            echo 'matrix={"include":[{"key":"linux-x64","os":"ubuntu-22.04"},{"key":"linux-arm64","os":"ubuntu-22.04-arm"},{"key":"darwin-x64","os":"macos-15-intel"},{"key":"darwin-arm64","os":"macos-14"},{"key":"win32-x64","os":"windows-2022"}]}' >> "$GITHUB_OUTPUT"
+          elif [ "$TARGET" = "linux-x64" ]; then
+            echo 'matrix={"include":[{"key":"linux-x64","os":"ubuntu-22.04"}]}' >> "$GITHUB_OUTPUT"
+          elif [ "$TARGET" = "linux-arm64" ]; then
+            echo 'matrix={"include":[{"key":"linux-arm64","os":"ubuntu-22.04-arm"}]}' >> "$GITHUB_OUTPUT"
+          elif [ "$TARGET" = "darwin-x64" ]; then
+            echo 'matrix={"include":[{"key":"darwin-x64","os":"macos-15-intel"}]}' >> "$GITHUB_OUTPUT"
+          elif [ "$TARGET" = "darwin-arm64" ]; then
+            echo 'matrix={"include":[{"key":"darwin-arm64","os":"macos-14"}]}' >> "$GITHUB_OUTPUT"
+          elif [ "$TARGET" = "win32-x64" ]; then
+            echo 'matrix={"include":[{"key":"win32-x64","os":"windows-2022"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo "Unknown target: $TARGET" >&2
+            exit 1
+          fi
+
   build-native:
     name: build ${{ matrix.key }}
-    needs: js
+    needs:
+      - js
+      - plan-native
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - key: linux-x64
-            os: ubuntu-22.04
-          - key: linux-arm64
-            os: ubuntu-22.04-arm
-          - key: darwin-x64
-            os: macos-15-intel
-          - key: darwin-arm64
-            os: macos-14
-          - key: win32-x64
-            os: windows-2022
+      matrix: ${{ fromJSON(needs.plan-native.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7
 
@@ -101,6 +134,7 @@ jobs:
   pack:
     name: pack npm tarball
     needs: build-native
+    if: github.event_name == 'push' || inputs.target == 'all'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

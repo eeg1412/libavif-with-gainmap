@@ -102,22 +102,7 @@ function normalizeConvertOptions(options = {}) {
         : Number(optionalChoice('depth', options.depth, ['8', '10', '12'])),
     env: options.env,
     gainMapQuality,
-    intermediateGainMapQuality: optionalRange(
-      'intermediateGainMapQuality',
-      options.intermediateGainMapQuality,
-      0,
-      100,
-      100
-    ),
-    intermediateQuality: optionalRange(
-      'intermediateQuality',
-      options.intermediateQuality,
-      0,
-      100,
-      100
-    ),
     jobs: normalizeJobs(options.jobs),
-    keepTemp: Boolean(options.keepTemp),
     platformKey: options.platformKey,
     quality,
     signal: options.signal,

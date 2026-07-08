@@ -7,6 +7,7 @@ const path = require('node:path')
 const test = require('node:test')
 
 const {
+  TOOL_GAINMAP_CONVERT,
   TOOL_GAINMAP_PROBE,
   TOOL_NAMES,
   assertToolAvailable,
@@ -40,6 +41,15 @@ test('includes the gain map probe native tool', () => {
   assert.equal(
     executableName(TOOL_GAINMAP_PROBE, 'win32-x64'),
     'avifgainmapprobe.exe'
+  )
+})
+
+test('includes the single-pass gain map convert native tool', () => {
+  assert.equal(TOOL_GAINMAP_CONVERT, 'avifgainmapconvert')
+  assert.ok(TOOL_NAMES.includes(TOOL_GAINMAP_CONVERT))
+  assert.equal(
+    executableName(TOOL_GAINMAP_CONVERT, 'win32-x64'),
+    'avifgainmapconvert.exe'
   )
 })
 

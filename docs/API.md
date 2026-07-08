@@ -2,7 +2,7 @@
 
 ## `convertJpegGainMap(input, output, options)`
 
-把带 gain map 的 JPEG 转成 AVIF gain map。
+Convert a JPEG gain map image to an AVIF gain map image.
 
 ```js
 const { convertJpegGainMap } = require('libavif-with-gainmap');
@@ -11,47 +11,53 @@ await convertJpegGainMap('input.jpg', 'output.avif', {
   quality: 80,
   gainMapQuality: 60,
   maxWidth: 1600,
-  maxHeight: 1200
+  maxHeight: 1200,
+  stripMetadata: true
 });
 ```
 
+Conversion uses the package native helper `avifgainmapconvert`, which reads the
+JPEG gain map, optionally resizes the base image and gain map image, optionally
+removes Exif/XMP privacy metadata, and writes the final AVIF in one encode pass.
+There is no two-stage full-size AVIF fallback.
+
 ## Options
 
+- `quality`: AVIF base image quality, `0..100`, default `80`.
+- `gainMapQuality`: gain map quality, `0..100`, default `60`.
+- `width`: output width. If `height` is omitted, height is computed proportionally.
+- `height`: output height. If `width` is omitted, width is computed proportionally.
+- `maxWidth`: downscale to fit this width. Does not upscale.
+- `maxHeight`: downscale to fit this height. Does not upscale.
+- `speed`: libavif encoder speed, `0..10`, default `6`.
+- `jobs`: worker threads, a positive integer or `'all'`.
+- `depth`: output bit depth, `8`, `10` or `12`.
+- `yuv`: output YUV format, `auto`, `444`, `422`, `420` or `400`, default `420`.
 - `stripMetadata`: remove Exif/XMP privacy metadata such as camera model, GPS and capture time. Default: `false`.
-- `quality`: 主图质量，`0..100`，默认 `80`。
-- `gainMapQuality`: gain map 质量，`0..100`，默认 `60`。
-- `width`: 输出宽度。单独设置时保持比例。
-- `height`: 输出高度。单独设置时保持比例。
-- `maxWidth`: 最大宽度，只缩小不放大。
-- `maxHeight`: 最大高度，只缩小不放大。
-- `speed`: libavif 编码速度，`0..10`，默认 `6`。
-- `jobs`: 线程数，正整数或 `'all'`。
-- `depth`: 输出 bit depth，`8`、`10`、`12`。
-- `yuv`: 输出 YUV 格式，`444`、`422`、`420`、`400`，默认 `420`。`420` 兼容性最好；如果需要更高色度保真度，可以显式使用 `444`。
-- `swapBase`: 传给 `avifgainmaputil --swap-base`。
-- `cicp`: 传给 `avifgainmaputil --cicp`，格式 `P/T/M`。
-- `clli`: 传给 `avifgainmaputil --clli`，格式 `MaxCLL,MaxPALL`。
-- `binDir`: 自定义二进制目录。
-- `toolPaths`: `{ avifgainmaputil, avifgainmapresize, avifgainmapprobe }` 自定义工具路径。
-- `verbose`: 把原生工具输出转发到当前 stdout/stderr。
+- `swapBase`: make the HDR image the AVIF base image.
+- `cicp`: override input CICP values, format `P/T/M`.
+- `clli`: set alternate image light level information, format `MaxCLL,MaxPALL`.
+- `binDir`: custom directory containing native binaries.
+- `toolPaths`: custom tool paths, e.g. `{ avifgainmapconvert, avifgainmaputil, avifgainmapprobe }`.
+- `verbose`: stream native tool stdout/stderr.
 
-返回值包含原生工具执行结果：
+Return value:
 
 ```js
 {
   input: '/abs/input.jpg',
   output: '/abs/output.avif',
-  postprocessed: true,
   resized: true,
   strippedMetadata: true,
-  convert: { command, args, stdout, stderr, exitCode },
-  resize: { command, args, stdout, stderr, exitCode }
+  convert: { command, args, stdout, stderr, exitCode }
 }
 ```
 
 ## `probeJpegGainMap(input, options)`
 
-严格检测 JPEG 是否包含可由 libavif 解析的 gain map。这个 API 调用 `avifgainmapprobe`，只读取和解析 JPEG，不编码 AVIF。
+Strictly detect whether a JPEG contains a gain map that libavif can parse. This
+API calls `avifgainmapprobe`; it only reads and parses the JPEG and does not
+encode AVIF.
 
 ```js
 const { probeJpegGainMap } = require('libavif-with-gainmap');
@@ -59,7 +65,7 @@ const { probeJpegGainMap } = require('libavif-with-gainmap');
 const probe = await probeJpegGainMap('input.jpg', { jobs: 'all' });
 ```
 
-返回值：
+Return value:
 
 ```js
 {
@@ -76,4 +82,6 @@ const probe = await probeJpegGainMap('input.jpg', { jobs: 'all' });
 }
 ```
 
-如果 JPEG 可以解码但没有 gain map，`hasGainMap` 为 `false`。如果输入不是 JPEG、文件打不开，或原生解析失败，会抛出 `AvifGainMapError`。
+If the JPEG can be decoded but has no gain map, `hasGainMap` is `false`. If the
+input is not a JPEG, cannot be opened, or native parsing fails, the API throws
+`AvifGainMapError`.
