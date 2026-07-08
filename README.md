@@ -24,6 +24,7 @@ npm install libavif-with-gainmap
 ```sh
 avif-gainmap convert input.jpg output.avif --quality 82 --gain-map-quality 70
 avif-gainmap probe input.jpg
+avif-gainmap convert input.jpg output.avif --strip-metadata
 ```
 
 调整尺寸：
@@ -55,6 +56,7 @@ await convertJpegGainMap('input.jpg', 'output.avif', {
   gainMapQuality: 70,
   maxWidth: 1600,
   maxHeight: 1200,
+  stripMetadata: true,
   jobs: 'all'
 });
 

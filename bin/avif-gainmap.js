@@ -26,6 +26,8 @@ Options:
       --clli <MaxCLL,MaxPALL>      Set alternate image light level information.
       --depth <8|10|12>            Output bit depth passed to libavif.
       --yuv <444|422|420|400>      Output YUV format passed to libavif. Default: 420
+      --strip-metadata, --strip-privacy
+                                   Remove Exif/XMP privacy metadata before writing.
       --keep-temp                  Keep intermediate AVIF when resizing.
       --verbose                    Stream native tool output.
   -h, --help                       Show this help.
@@ -93,6 +95,10 @@ function parseConvertArgs(args) {
       }
       case '--swap-base':
         options.swapBase = true;
+        break;
+      case '--strip-metadata':
+      case '--strip-privacy':
+        options.stripMetadata = true;
         break;
       case '--keep-temp':
         options.keepTemp = true;

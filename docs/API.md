@@ -17,6 +17,7 @@ await convertJpegGainMap('input.jpg', 'output.avif', {
 
 ## Options
 
+- `stripMetadata`: remove Exif/XMP privacy metadata such as camera model, GPS and capture time. Default: `false`.
 - `quality`: 主图质量，`0..100`，默认 `80`。
 - `gainMapQuality`: gain map 质量，`0..100`，默认 `60`。
 - `width`: 输出宽度。单独设置时保持比例。
@@ -40,7 +41,9 @@ await convertJpegGainMap('input.jpg', 'output.avif', {
 {
   input: '/abs/input.jpg',
   output: '/abs/output.avif',
+  postprocessed: true,
   resized: true,
+  strippedMetadata: true,
   convert: { command, args, stdout, stderr, exitCode },
   resize: { command, args, stdout, stderr, exitCode }
 }

@@ -123,6 +123,7 @@ function normalizeConvertOptions(options = {}) {
     signal: options.signal,
     size: normalizeSize(options),
     speed: optionalRange('speed', options.speed, 0, 10, DEFAULT_SPEED),
+    stripMetadata: Boolean(options.stripMetadata || options.stripPrivacy),
     swapBase: Boolean(options.swapBase),
     toolPaths: options.toolPaths,
     verbose: Boolean(options.verbose),

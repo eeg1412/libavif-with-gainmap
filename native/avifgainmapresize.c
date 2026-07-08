@@ -22,6 +22,7 @@ typedef struct ResizeOptions {
     int qualityGainMap;
     int speed;
     int jobs;
+    avifBool stripMetadata;
 } ResizeOptions;
 
 static void printUsage(void)
@@ -39,6 +40,7 @@ static void printUsage(void)
             "  --qgain-map N      Gain map quality, 0-100. Default: 60.\n"
             "  --speed N          Encoder speed, 0-10. Default: 6.\n"
             "  --jobs N           Worker threads.\n"
+            "  --strip-metadata   Remove Exif/XMP privacy metadata before writing.\n"
             "  --help             Show this help.\n");
 }
 
@@ -147,6 +149,8 @@ static avifBool parseArgs(int argc, char ** argv, ResizeOptions * options)
             if (!readOptionValue(argc, argv, &i, &value) || !parseInt(value, "--jobs", 1, 1024, &options->jobs)) {
                 return AVIF_FALSE;
             }
+        } else if (strcmp(argv[i], "--strip-metadata") == 0) {
+            options->stripMetadata = AVIF_TRUE;
         } else {
             fprintf(stderr, "Unknown option %s.\n", argv[i]);
             return AVIF_FALSE;
@@ -230,6 +234,16 @@ static avifResult scaleImage(avifImage * image, uint32_t width, uint32_t height,
     return result;
 }
 
+static void stripMetadata(avifImage * image)
+{
+    avifRWDataFree(&image->exif);
+    avifRWDataFree(&image->xmp);
+    if (image->gainMap && image->gainMap->image) {
+        avifRWDataFree(&image->gainMap->image->exif);
+        avifRWDataFree(&image->gainMap->image->xmp);
+    }
+}
+
 static avifBool writeFile(const char * path, const avifRWData * data)
 {
     FILE * file = fopen(path, "wb");
@@ -301,6 +315,10 @@ int main(int argc, char ** argv)
     result = scaleImage(image->gainMap->image, targetGainMapWidth, targetGainMapHeight, "gain map image");
     if (result != AVIF_RESULT_OK) {
         goto cleanup;
+    }
+
+    if (options.stripMetadata) {
+        stripMetadata(image);
     }
 
     encoder = avifEncoderCreate();

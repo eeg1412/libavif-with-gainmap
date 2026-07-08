@@ -64,6 +64,9 @@ function buildResizeArgs(input, output, options) {
     pushOption(args, '--max-width', size.maxWidth);
     pushOption(args, '--max-height', size.maxHeight);
   }
+  if (options.stripMetadata) {
+    args.push('--strip-metadata');
+  }
   return args;
 }
 
@@ -76,7 +79,8 @@ async function convertJpegGainMap(input, output, rawOptions = {}) {
     resolveTool(TOOL_GAINMAP_UTIL, options),
     TOOL_GAINMAP_UTIL
   );
-  const resizePath = options.size
+  const shouldPostProcess = Boolean(options.size || options.stripMetadata);
+  const resizePath = shouldPostProcess
     ? assertToolAvailable(resolveTool(TOOL_GAINMAP_RESIZE, options), TOOL_GAINMAP_RESIZE)
     : null;
 
@@ -88,7 +92,7 @@ async function convertJpegGainMap(input, output, rawOptions = {}) {
       intermediate = path.join(tempDir, 'converted.avif');
     }
 
-    // Resize is a second AVIF encode, so the intermediate conversion defaults to lossless.
+    // Post-processing is a second AVIF encode, so the intermediate conversion defaults to lossless.
     const convertArgs = buildConvertArgs(input, intermediate, options, Boolean(resizePath));
     const convert = await runFile(utilPath, convertArgs, options);
 
@@ -102,8 +106,10 @@ async function convertJpegGainMap(input, output, rawOptions = {}) {
       convert,
       input: path.resolve(input),
       output: path.resolve(output),
+      postprocessed: Boolean(resize),
       resize,
-      resized: Boolean(resize),
+      resized: Boolean(options.size && resize),
+      strippedMetadata: Boolean(options.stripMetadata && resize),
       tempDir: options.keepTemp ? tempDir : undefined
     };
   } finally {

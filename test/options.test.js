@@ -11,6 +11,7 @@ test('normalizes default conversion options', () => {
   assert.equal(options.gainMapQuality, 60);
   assert.equal(options.speed, 6);
   assert.equal(options.size, null);
+  assert.equal(options.stripMetadata, false);
   assert.equal(options.yuv, '420');
 });
 
@@ -38,4 +39,9 @@ test('rejects mixed exact and max sizing', () => {
 test('rejects unsupported libavif choices', () => {
   assert.throws(() => normalizeConvertOptions({ depth: 9 }), /depth must be one of/);
   assert.throws(() => normalizeConvertOptions({ yuv: '411' }), /yuv must be one of/);
+});
+
+test('normalizes metadata stripping aliases', () => {
+  assert.equal(normalizeConvertOptions({ stripMetadata: true }).stripMetadata, true);
+  assert.equal(normalizeConvertOptions({ stripPrivacy: true }).stripMetadata, true);
 });
