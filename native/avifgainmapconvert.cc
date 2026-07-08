@@ -5,7 +5,6 @@
 
 #include "avif/avif.h"
 #include "imageio.h"
-#include "swapbase_command.h"
 
 #include <cerrno>
 #include <cstdio>
@@ -14,6 +13,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -347,6 +347,95 @@ bool normalizeGainMapMetadata(avifImage * image)
     return true;
 }
 
+avifResult changeBase(const avifImage & image, int depth, avifPixelFormat yuvFormat, avifImage * swapped)
+{
+    if (image.gainMap == nullptr || image.gainMap->image == nullptr) {
+        return AVIF_RESULT_INVALID_ARGUMENT;
+    }
+
+    avifResult result = avifImageCopy(swapped, &image, /*planes=*/0);
+    if (result != AVIF_RESULT_OK) {
+        return result;
+    }
+    swapped->depth = depth;
+    swapped->yuvFormat = yuvFormat;
+
+    if (image.gainMap->alternateHdrHeadroom.d == 0) {
+        return AVIF_RESULT_INVALID_ARGUMENT;
+    }
+    const float headroom =
+        static_cast<float>(image.gainMap->alternateHdrHeadroom.n) / image.gainMap->alternateHdrHeadroom.d;
+    const bool toneMappingToSdr = (headroom == 0.0f);
+
+    swapped->colorPrimaries = image.gainMap->altColorPrimaries;
+    if (swapped->colorPrimaries == AVIF_COLOR_PRIMARIES_UNSPECIFIED) {
+        swapped->colorPrimaries = image.colorPrimaries;
+    }
+    swapped->transferCharacteristics = image.gainMap->altTransferCharacteristics;
+    if (swapped->transferCharacteristics == AVIF_TRANSFER_CHARACTERISTICS_UNSPECIFIED) {
+        swapped->transferCharacteristics =
+            toneMappingToSdr ? AVIF_TRANSFER_CHARACTERISTICS_SRGB : AVIF_TRANSFER_CHARACTERISTICS_PQ;
+    }
+    swapped->matrixCoefficients = image.gainMap->altMatrixCoefficients;
+    if (swapped->matrixCoefficients == AVIF_MATRIX_COEFFICIENTS_UNSPECIFIED) {
+        swapped->matrixCoefficients = image.matrixCoefficients;
+    }
+
+    avifRGBImage swappedRgb;
+    avifRGBImageSetDefaults(&swappedRgb, swapped);
+    avifContentLightLevelInformationBox clli = image.gainMap->altCLLI;
+    const bool computeClli = !toneMappingToSdr && clli.maxCLL == 0 && clli.maxPALL == 0;
+    avifDiagnostics diag;
+    std::memset(&diag, 0, sizeof(diag));
+
+    result = avifImageApplyGainMap(&image,
+                                   image.gainMap,
+                                   headroom,
+                                   swapped->colorPrimaries,
+                                   swapped->transferCharacteristics,
+                                   &swappedRgb,
+                                   computeClli ? &clli : nullptr,
+                                   &diag);
+    if (result != AVIF_RESULT_OK) {
+        std::cerr << "Failed to tone map image: " << avifResultToString(result) << " (" << diag.error << ")\n";
+        avifRGBImageFreePixels(&swappedRgb);
+        return result;
+    }
+
+    result = avifImageRGBToYUV(swapped, &swappedRgb);
+    avifRGBImageFreePixels(&swappedRgb);
+    if (result != AVIF_RESULT_OK) {
+        std::cerr << "Failed to convert to YUV: " << avifResultToString(result) << "\n";
+        return result;
+    }
+    swapped->clli = clli;
+
+    result = avifImageCopy(swapped->gainMap->image, image.gainMap->image, AVIF_PLANES_YUV);
+    if (result != AVIF_RESULT_OK) {
+        return result;
+    }
+
+    result = avifRWDataSet(&swapped->gainMap->altICC, image.icc.data, image.icc.size);
+    if (result != AVIF_RESULT_OK) {
+        return result;
+    }
+    swapped->gainMap->altColorPrimaries = image.colorPrimaries;
+    swapped->gainMap->altTransferCharacteristics = image.transferCharacteristics;
+    swapped->gainMap->altMatrixCoefficients = image.matrixCoefficients;
+    swapped->gainMap->altYUVRange = image.yuvRange;
+    swapped->gainMap->altDepth = image.depth;
+    swapped->gainMap->altPlaneCount = (image.yuvFormat == AVIF_PIXEL_FORMAT_YUV400) ? 1 : 3;
+    swapped->gainMap->altCLLI = image.clli;
+
+    avifGainMap * gainMap = swapped->gainMap;
+    gainMap->useBaseColorSpace = !gainMap->useBaseColorSpace;
+    std::swap(gainMap->baseHdrHeadroom, gainMap->alternateHdrHeadroom);
+    for (int c = 0; c < 3; ++c) {
+        std::swap(gainMap->baseOffset[c], gainMap->alternateOffset[c]);
+    }
+    return AVIF_RESULT_OK;
+}
+
 avifResult resizeGainMapImage(avifImage * image, const ConvertOptions & options)
 {
     const uint32_t sourceWidth = image->width;
@@ -442,7 +531,7 @@ int main(int argc, char ** argv)
             std::cerr << "Out of memory.\n";
             goto cleanup;
         }
-        result = avif::ChangeBase(*image, depth, image->yuvFormat, swapped);
+        result = changeBase(*image, depth, image->yuvFormat, swapped);
         if (result != AVIF_RESULT_OK) {
             std::cerr << "Failed to swap base image: " << avifResultToString(result) << "\n";
             goto cleanup;

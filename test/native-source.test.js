@@ -25,6 +25,14 @@ test('single-pass gain map convert reads JPEG gain maps directly', () => {
   assert.doesNotMatch(source, /avifDecoderReadFile\(/);
 });
 
+test('single-pass gain map convert does not link libavif CLI swapbase command', () => {
+  const nativeSource = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
+  const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-libavif.js'), 'utf8');
+
+  assert.doesNotMatch(nativeSource, /swapbase_command\.h/);
+  assert.doesNotMatch(buildScript, /apps\/avifgainmaputil\/swapbase_command\.cc/);
+});
+
 test('single-pass gain map convert declares result before cleanup gotos', () => {
   const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
   const resultDeclaration = source.indexOf('avifResult result = AVIF_RESULT_OK;');

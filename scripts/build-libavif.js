@@ -87,6 +87,10 @@ function patchCMake() {
     'g'
   );
   content = content.replace(oldResizeTargetPattern, '\n');
+  content = content.replace(
+    /\n\s*add_executable\(\s*avifgainmapconvert[\s\S]*?target_link_libraries\(avifgainmapconvert[^\n]*\)\s*/g,
+    '\n'
+  );
 
   const hasConvertTarget = /add_executable\s*\(\s*avifgainmapconvert\b/.test(content);
   const hasProbeTarget = /add_executable\s*\(\s*avifgainmapprobe\b/.test(content);
@@ -101,7 +105,6 @@ function patchCMake() {
         avifgainmapconvert
         apps/avifgainmaputil/avifgainmapconvert.cc
         apps/avifgainmaputil/imageio.cc
-        apps/avifgainmaputil/swapbase_command.cc
     )
     if(WIN32)
         if(MSVC)
