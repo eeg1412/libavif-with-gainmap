@@ -10,7 +10,7 @@
     "test:cli": "node scripts/convert.js --mode cli"
   },
   "dependencies": {
-    "libavif-with-gainmap": "^0.1.10"
+    "libavif-with-gainmap": "^0.1.11"
   },
   "engines": {
     "node": ">=18"

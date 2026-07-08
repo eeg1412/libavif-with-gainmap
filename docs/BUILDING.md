@@ -51,8 +51,8 @@ permissions:
 正式发布：
 
 ```sh
-git tag v0.1.10
-git push origin v0.1.10
+git tag v0.1.11
+git push origin v0.1.11
 ```
 
 ## 本地构筑当前平台
