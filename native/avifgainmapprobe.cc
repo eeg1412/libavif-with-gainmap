@@ -56,8 +56,12 @@ int silenceStdout()
     FILE * ignored = nullptr;
     freopen_s(&ignored, "NUL", "w", stdout);
 #else
-    freopen("/dev/null", "w", stdout);
+    FILE * ignored = freopen("/dev/null", "w", stdout);
 #endif
+    if (ignored == nullptr) {
+        restoreStdout(saved);
+        return -1;
+    }
     return saved;
 }
 

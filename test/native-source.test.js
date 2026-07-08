@@ -16,6 +16,14 @@ test('gain map probe accepts libavif fraction variants', () => {
   assert.match(source, /fractionToDouble\(gainMap->alternateHdrHeadroom\)/);
 });
 
+test('gain map probe checks freopen return value', () => {
+  const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapprobe.cc'), 'utf8');
+
+  assert.match(source, /FILE\s*\*\s*ignored\s*=\s*freopen\("\/dev\/null",\s*"w",\s*stdout\)/);
+  assert.match(source, /if\s*\(\s*ignored\s*==\s*nullptr\s*\)/);
+  assert.doesNotMatch(source, /^\s*freopen\("\/dev\/null",\s*"w",\s*stdout\);/m);
+});
+
 test('single-pass gain map convert reads JPEG gain maps directly', () => {
   const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
 
