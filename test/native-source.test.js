@@ -36,6 +36,46 @@ test('single-pass gain map convert declares result before cleanup gotos', () => 
   assert.doesNotMatch(source, /avifResult\s+result\s*=\s*avif::ReadImage/);
 });
 
+test('single-pass gain map convert has no function-scope initialized declarations after cleanup gotos', () => {
+  const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
+  const mainStart = source.indexOf('int main(');
+  const bodyStart = source.indexOf('{', mainStart);
+  const firstCleanupGoto = source.indexOf('goto cleanup;', bodyStart);
+  const cleanupLabel = source.indexOf('cleanup:', bodyStart);
+
+  assert.ok(mainStart !== -1);
+  assert.ok(bodyStart !== -1);
+  assert.ok(firstCleanupGoto !== -1);
+  assert.ok(cleanupLabel !== -1);
+
+  let depth = 1;
+  let line = 1 + source.slice(0, bodyStart).split(/\r?\n/).length;
+  let afterFirstCleanupGoto = false;
+  const lines = source.slice(bodyStart + 1, cleanupLabel).split(/\r?\n/);
+  const mainScopeInitializers = [];
+  const declarationWithInitializer =
+    /^\s*(?:const\s+)?(?:avif[A-Za-z0-9_]*|[A-Za-z_][A-Za-z0-9_:<>]*)\s*(?:[*&]\s*)+[A-Za-z_][A-Za-z0-9_]*\s*=|^\s*(?:const\s+)?(?:avif[A-Za-z0-9_]*|[A-Za-z_][A-Za-z0-9_:<>]*)\s+[A-Za-z_][A-Za-z0-9_]*\s*=/;
+
+  for (const text of lines) {
+    if (afterFirstCleanupGoto && depth === 1 && declarationWithInitializer.test(text)) {
+      mainScopeInitializers.push(`${line}: ${text.trim()}`);
+    }
+    if (text.includes('goto cleanup;')) {
+      afterFirstCleanupGoto = true;
+    }
+    for (const char of text) {
+      if (char === '{') {
+        depth += 1;
+      } else if (char === '}') {
+        depth -= 1;
+      }
+    }
+    line += 1;
+  }
+
+  assert.deepEqual(mainScopeInitializers, []);
+});
+
 test('single-pass gain map convert can strip Exif and XMP metadata', () => {
   const source = fs.readFileSync(path.join(root, 'native', 'avifgainmapconvert.cc'), 'utf8');
 

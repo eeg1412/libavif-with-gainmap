@@ -77,6 +77,17 @@ function installNativeToolSources() {
 function patchCMake() {
   const cmakePath = path.join(sourceDir, 'CMakeLists.txt');
   let content = fs.readFileSync(cmakePath, 'utf8');
+  const oldResizeTool = 'avifgainmap' + 'resize';
+  const oldResizeTargetPattern = new RegExp(
+    `\\n\\s*add_executable\\(${oldResizeTool} apps/${oldResizeTool}\\.c\\)\\s*` +
+      `\\n\\s*if\\(AVIF_LIB_USE_CXX\\)\\s*` +
+      `\\n\\s*set_target_properties\\(${oldResizeTool} PROPERTIES LINKER_LANGUAGE "CXX"\\)\\s*` +
+      `\\n\\s*endif\\(\\)\\s*` +
+      `\\n\\s*target_link_libraries\\(${oldResizeTool} avif avif_enable_warnings\\)\\s*`,
+    'g'
+  );
+  content = content.replace(oldResizeTargetPattern, '\n');
+
   const hasConvertTarget = /add_executable\s*\(\s*avifgainmapconvert\b/.test(content);
   const hasProbeTarget = /add_executable\s*\(\s*avifgainmapprobe\b/.test(content);
   if (!hasConvertTarget || !hasProbeTarget) {
@@ -127,7 +138,6 @@ function patchCMake() {
 
   }
 
-  const oldResizeTool = 'avifgainmap' + 'resize';
   const installTargetsPattern = new RegExp(
     `TARGETS\\s+avifenc\\s+avifdec\\s+avifgainmaputil(?:\\s+${oldResizeTool})?(?:\\s+avifgainmapconvert)?(?:\\s+avifgainmapprobe)?`
   );
