@@ -164,14 +164,29 @@ jobs:
       - run: npm test
       - run: npm run check-prebuilt:all
 
-      - name: Create package
-        run: npm pack
+      - name: Generate platform packages
+        run: node scripts/prepare-platform-packages.js --require-all
 
-      - name: Upload npm package
+      - name: Create packages
+        run: |
+          mkdir -p dist/platform dist/main
+          for dir in platform-packages/*/; do
+            npm pack "$dir" --pack-destination dist/platform
+          done
+          npm pack --pack-destination dist/main
+
+      - name: Upload platform packages
         uses: actions/upload-artifact@v7
         with:
-          name: npm-package
-          path: '*.tgz'
+          name: npm-platform-packages
+          path: dist/platform/*.tgz
+          if-no-files-found: error
+
+      - name: Upload main package
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-main-package
+          path: dist/main/*.tgz
           if-no-files-found: error
 
   publish:
@@ -182,8 +197,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: npm-package
-          path: .
+          name: npm-platform-packages
+          path: platform-tarballs
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: npm-main-package
+          path: main-tarball
 
       - uses: actions/setup-node@v6
         with:
@@ -191,5 +211,15 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      - name: Publish
-        run: npm publish ./*.tgz --access public
+      # Platform packages must be published before the main package, because the
+      # main package references them through optionalDependencies at the same
+      # exact version.
+      - name: Publish platform packages
+        run: |
+          for tarball in platform-tarballs/*.tgz; do
+            echo "Publishing $tarball"
+            npm publish "$tarball" --access public
+          done
+
+      - name: Publish main package
+        run: npm publish main-tarball/*.tgz --access public

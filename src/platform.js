@@ -44,8 +44,25 @@ function executableName(tool, platformKey = getPlatformKey()) {
   return platformKey.startsWith('win32-') ? `${tool}.exe` : tool
 }
 
+function platformPackageName(platformKey = getPlatformKey()) {
+  return `libavif-with-gainmap-${platformKey}`
+}
+
 function vendorDir(platformKey = getPlatformKey()) {
-  return path.join(packageRoot(), 'vendor', platformKey)
+  // Binaries are published as per-platform optional dependencies
+  // (libavif-with-gainmap-<platformKey>) so a normal install only downloads
+  // the current platform's binary instead of every platform's ~40MB build.
+  const pkg = platformPackageName(platformKey)
+  try {
+    const pkgJson = require.resolve(`${pkg}/package.json`, {
+      paths: [packageRoot()]
+    })
+    return path.join(path.dirname(pkgJson), 'vendor', platformKey)
+  } catch {
+    // Fall back to an in-repo vendor directory for local development and for
+    // consumers that vendor the binaries manually.
+    return path.join(packageRoot(), 'vendor', platformKey)
+  }
 }
 
 function resolveTool(tool, options = {}) {
@@ -106,9 +123,13 @@ function ensureExecutable(toolPath) {
 
 function assertToolAvailable(toolPath, tool) {
   if (!fs.existsSync(toolPath)) {
+    const platformKey = getPlatformKey()
     throw new Error(
       `${tool} binary was not found at ${toolPath}. ` +
-        'Run the GitHub Actions release workflow, npm run build:libavif, or set AVIF_GAINMAP_BIN_DIR.'
+        `The platform package "${platformPackageName(platformKey)}" is missing. ` +
+        'Reinstall without "--omit=optional" / "--no-optional" so npm can fetch the ' +
+        'matching native binary, or run npm run build:libavif or set AVIF_GAINMAP_BIN_DIR ' +
+        'for local development.'
     )
   }
   ensureExecutable(toolPath)
@@ -126,6 +147,7 @@ module.exports = {
   executableName,
   getPlatformKey,
   packageRoot,
+  platformPackageName,
   resolveTool,
   vendorDir
 }
