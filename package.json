@@ -42,6 +42,7 @@
   "scripts": {
     "test": "node --test",
     "build:libavif": "node scripts/build-libavif.js",
+    "set-version": "node scripts/set-version.js",
     "prepare-platform-packages": "node scripts/prepare-platform-packages.js",
     "check-prebuilt": "node scripts/check-prebuilt.js --current",
     "check-prebuilt:all": "node scripts/check-prebuilt.js --all"
