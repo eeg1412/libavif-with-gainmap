@@ -218,8 +218,8 @@ jobs:
         run: |
           for tarball in platform-tarballs/*.tgz; do
             echo "Publishing $tarball"
-            npm publish "$tarball" --access public
+            npm publish "./$tarball" --access public
           done
 
       - name: Publish main package
-        run: npm publish main-tarball/*.tgz --access public
+        run: npm publish ./main-tarball/*.tgz --access public
